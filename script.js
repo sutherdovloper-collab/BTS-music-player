@@ -28,8 +28,13 @@ const previous = document.getElementById("previous");
 const next = document.getElementById("next");
 
 
+function encodePathSegments(path) {
+    return path.split('/').map(encodeURIComponent).join('/');
+}
+
 async function getSongs(folder) {
     currfolder = folder;
+    const safeFolder = encodePathSegments(folder);
 
     // ===== ORIGINAL CODE (commented) =====
     // const response = await fetch(`./${folder}/`);
@@ -54,7 +59,7 @@ async function getSongs(folder) {
 
     // New implementation: try manifest first, then fallback to directory parse
     try {
-        const manifestResp = await fetch(`./${folder}/files.json`);
+        const manifestResp = await fetch(`./${safeFolder}/files.json`);
         if (manifestResp.ok) {
             const manifest = await manifestResp.json();
             // manifest expected to be an array of filenames (strings)
@@ -68,7 +73,7 @@ async function getSongs(folder) {
     }
 
     // Fallback: try parsing directory listing HTML (works on some dev servers)
-    const response = await fetch(`./${folder}/`);
+    const response = await fetch(`./${safeFolder}/`);
     const html = await response.text();
 
     const div = document.createElement("div");
@@ -137,8 +142,9 @@ const playMusic = (track, pause = false) => {
 
     // New implementation: safely encode path segments and handle play() promise
     // Safely encode each path segment to handle spaces/apostrophes etc.
+    const safeFolder = encodePathSegments(currfolder);
     const encoded = track.split('/').map(s => encodeURIComponent(s)).join('/');
-    currentSong.src = `./${currfolder}/${encoded}`;
+    currentSong.src = `./${safeFolder}/${encoded}`;
     // Ensure the audio element reloads the new source
     currentSong.load();
 
@@ -215,10 +221,11 @@ async function displayAlbums() {
 
         if (!folder) continue; // cannot map this card to a folder
 
+        const safeFolder = encodePathSegments(folder);
         // load info if needed
         if (infoCache[folder] === undefined) {
             try {
-                const r = await fetch(`./songs/${encodeURIComponent(folder)}/info.json`);
+                const r = await fetch(`./${safeFolder}/info.json`);
                 infoCache[folder] = r.ok ? await r.json() : null;
             } catch (e) { infoCache[folder] = null; }
         }
