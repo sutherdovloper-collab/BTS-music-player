@@ -169,74 +169,29 @@ const playMusic = (track, pause = false) => {
 };
 
 async function displayAlbums() {
-    // Use the existing .card elements in the HTML
     const cardContainer = document.querySelector(".cardContainer");
     if (!cardContainer) return;
-    const cards = Array.from(cardContainer.querySelectorAll('.card'));
-
-    // Load known folder list to help match cards without data-folder
-    let knownFolders = [];
-    try {
-        const fresp = await fetch('./songs/folders.json');
-        if (fresp.ok) knownFolders = await fresp.json();
-    } catch (e) {
-        console.warn('folders.json not found, proceeding without it', e);
-    }
-
-    const infoCache = {};
-    const tryMatchByInfo = async (titleLower) => {
-        for (const f of knownFolders) {
-            if (infoCache[f] === undefined) {
-                try {
-                    const r = await fetch(`./songs/${encodeURIComponent(f)}/info.json`);
-                    infoCache[f] = r.ok ? await r.json() : null;
-                } catch (e) {
-                    infoCache[f] = null;
-                }
-            }
-            const info = infoCache[f];
-            if (info && info.title && info.title.toLowerCase().includes(titleLower)) return f;
-            if (info && titleLower.includes((info.title || '').toLowerCase())) return f;
-        }
-        return null;
-    };
+    const cards = Array.from(cardContainer.querySelectorAll('.card[data-folder]'));
 
     for (const card of cards) {
-        let folder = card.dataset.folder;
-
-        if (!folder) {
-            const title = (card.querySelector('h2')?.textContent || '').trim();
-            const titleLower = title.toLowerCase();
-            if (titleLower) {
-                // try exact or partial folder-name matches
-                let match = knownFolders.find(f => f.toLowerCase() === titleLower)
-                    || knownFolders.find(f => f.toLowerCase().includes(titleLower))
-                    || knownFolders.find(f => titleLower.includes(f.toLowerCase()));
-                if (!match) {
-                    match = await tryMatchByInfo(titleLower);
-                }
-                if (match) folder = match;
-            }
-        }
-
+        const folder = card.dataset.folder;
         if (!folder) {
             card.remove();
-            continue; // remove copyright/unplayable cards
+            continue;
         }
 
         const safeFolder = encodePathSegments(folder);
-        // load info if needed
-        if (infoCache[folder] === undefined) {
-            try {
-                const r = await fetch(`./${safeFolder}/info.json`);
-                infoCache[folder] = r.ok ? await r.json() : null;
-            } catch (e) { infoCache[folder] = null; }
+        let info = null;
+        try {
+            const r = await fetch(`./${safeFolder}/info.json`);
+            if (r.ok) info = await r.json();
+        } catch (e) {
+            info = null;
         }
 
-        const info = infoCache[folder];
         if (!info) {
             card.remove();
-            continue; // remove cards for folders without local metadata
+            continue;
         }
 
         const img = card.querySelector('img');
@@ -246,13 +201,13 @@ async function displayAlbums() {
         const p = card.querySelector('p');
         if (p) p.textContent = info.description || p.textContent;
 
-        // ensure data-folder set for later use and attach click
-        card.dataset.folder = folder;
         card.addEventListener('click', async () => {
             song = await getSongs(`songs/${folder}`);
             if (songs.length > 0) playMusic(songs[0]);
         });
     }
+
+    Array.from(cardContainer.querySelectorAll('.card:not([data-folder])')).forEach(card => card.remove());
 }
 // UI event listeners below
 const hamburgur = document.querySelector(".hamburgur");
