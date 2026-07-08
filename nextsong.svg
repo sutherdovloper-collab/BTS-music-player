@@ -1,0 +1,14 @@
+<svg width="24" height="24" viewBox="0 0 24 24"
+     xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Triangle -->
+  <path d="M6 5 L16 12 L6 19 Z"
+        fill="none"
+        stroke="black"
+        stroke-width="2"
+        stroke-linejoin="round"/>
+
+  <!-- Vertical line -->
+  <rect x="18" y="5" width="2" height="14" fill="black"/>
+
+</svg>

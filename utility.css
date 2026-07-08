@@ -1,0 +1,68 @@
+.border {
+    border: 2px solid yellow;
+    margin: 3px;
+}
+
+.flex {
+    display: flex;
+}
+
+.justify-center {
+    justify-content: center;
+}
+
+.item-center {
+    align-items: center;
+}
+
+.bg-black {
+    background-color: rgb(205, 156, 255);
+    color: white;
+    min-width: 500px;
+}
+
+
+
+.invert {
+    filter: invert(1);
+}
+
+.bg-grey {
+    background-color: #af37ff;
+}
+
+.rounded {
+    border-radius: 7px;
+}
+
+.m-1 {
+    margin: 5px;
+    /* width: 460px; */
+}
+
+.p-1 {
+    padding: 10px;
+}
+
+
+
+
+
+/* Chrome, Edge, Safari */
+
+::-webkit-scrollbar {
+    width: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: #46007b;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #ebcdff;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #5d0b86;
+}
