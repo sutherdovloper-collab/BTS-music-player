@@ -219,7 +219,10 @@ async function displayAlbums() {
             }
         }
 
-        if (!folder) continue; // cannot map this card to a folder
+        if (!folder) {
+            card.remove();
+            continue; // remove copyright/unplayable cards
+        }
 
         const safeFolder = encodePathSegments(folder);
         // load info if needed
@@ -231,14 +234,17 @@ async function displayAlbums() {
         }
 
         const info = infoCache[folder];
-        if (info) {
-            const img = card.querySelector('img');
-            if (img) img.src = `/songs/${folder}/cover.jpg`;
-            const h2 = card.querySelector('h2');
-            if (h2) h2.textContent = info.title || h2.textContent;
-            const p = card.querySelector('p');
-            if (p) p.textContent = info.description || p.textContent;
+        if (!info) {
+            card.remove();
+            continue; // remove cards for folders without local metadata
         }
+
+        const img = card.querySelector('img');
+        if (img) img.src = `/songs/${safeFolder}/cover.jpg`;
+        const h2 = card.querySelector('h2');
+        if (h2) h2.textContent = info.title || h2.textContent;
+        const p = card.querySelector('p');
+        if (p) p.textContent = info.description || p.textContent;
 
         // ensure data-folder set for later use and attach click
         card.dataset.folder = folder;
