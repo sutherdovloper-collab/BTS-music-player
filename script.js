@@ -173,6 +173,14 @@ async function displayAlbums() {
             const infoResponse = await fetch(`./songs/${encodeURIComponent(folder)}/info.json`);
             if (infoResponse.ok) {
                 const info = await infoResponse.json();
+
+                // If the album title or description mentions copyright, remove the card
+                const textToCheck = `${info.title || ''} ${info.description || ''}`;
+                if (/copyright/i.test(textToCheck)) {
+                    card.remove();
+                    continue; // skip attaching handlers
+                }
+
                 const img = card.querySelector('img');
                 if (img) img.src = `/songs/${folder}/cover.jpg`;
                 const h2 = card.querySelector('h2');
