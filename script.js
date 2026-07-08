@@ -175,11 +175,11 @@ async function displayAlbums() {
                 const info = await infoResponse.json();
 
                 // If the album title or description mentions copyright, remove the card
-                const textToCheck = `${info.title || ''} ${info.description || ''}`;
-                if (/copyright/i.test(textToCheck)) {
-                    card.remove();
-                    continue; // skip attaching handlers
-                }
+                // const textToCheck = `${info.title || ''} ${info.description || ''}`;
+                // if (/copyright/i.test(textToCheck)) {
+                //     card.remove();
+                //     continue; // skip attaching handlers
+                // }
 
                 const img = card.querySelector('img');
                 if (img) img.src = `/songs/${folder}/cover.jpg`;
@@ -204,43 +204,83 @@ async function displayAlbums() {
 // }
 
 // 🎧 MAIN FUNCTION
-async function main() {
+async function displayAlbums() {
+    const cardContainer = document.querySelector(".cardContainer");
+    const cards = Array.from(cardContainer.querySelectorAll('.card'));
 
-    await getSongs("songs/ncs");
+    // Load known folder list to help match cards without data-folder
+    let knownFolders = [];
+    try {
+        const fresp = await fetch('./songs/folders.json');
+        if (fresp.ok) knownFolders = await fresp.json();
+    } catch (e) {
+        console.warn('folders.json not found, proceeding without it', e);
+    }
 
-    let songUL = document.querySelector(".songlist ul");
-    // ORIGINAL: playMusic(songs[0], true)
-    if (songs.length > 0) playMusic(songs[0], true)
+    const infoCache = {};
+    const tryMatchByInfo = async (titleLower) => {
+        for (const f of knownFolders) {
+            if (infoCache[f] === undefined) {
+                try {
+                    const r = await fetch(`./songs/${encodeURIComponent(f)}/info.json`);
+                    infoCache[f] = r.ok ? await r.json() : null;
+                } catch (e) {
+                    infoCache[f] = null;
+                }
+            }
+            const info = infoCache[f];
+            if (info && info.title && info.title.toLowerCase().includes(titleLower)) return f;
+            if (info && titleLower.includes((info.title || '').toLowerCase())) return f;
+        }
+        return null;
+    };
 
-    //display all the albums on page
-    displayAlbums()
+    for (const card of cards) {
+        let folder = card.dataset.folder;
 
-    // 🎧 PLAY / PAUSE BUTTON
-    playBtn.addEventListener("click", () => {
-
-        if (currentSong.paused) {
-            currentSong.play();
-            playBtn.src = "pause.svg";
-        } else {
-            currentSong.pause();
-            playBtn.src = "play.svg";
+        if (!folder) {
+            const title = (card.querySelector('h2')?.textContent || '').trim();
+            const titleLower = title.toLowerCase();
+            if (titleLower) {
+                // try exact or partial folder-name matches
+                let match = knownFolders.find(f => f.toLowerCase() === titleLower)
+                    || knownFolders.find(f => f.toLowerCase().includes(titleLower))
+                    || knownFolders.find(f => titleLower.includes(f.toLowerCase()));
+                if (!match) {
+                    match = await tryMatchByInfo(titleLower);
+                }
+                if (match) folder = match;
+            }
         }
 
-    });
+        if (!folder) continue; // cannot map this card to a folder
+
+        // load info if needed
+        if (infoCache[folder] === undefined) {
+            try {
+                const r = await fetch(`./songs/${encodeURIComponent(folder)}/info.json`);
+                infoCache[folder] = r.ok ? await r.json() : null;
+            } catch (e) { infoCache[folder] = null; }
+        }
+
+        const info = infoCache[folder];
+        if (info) {
+            const img = card.querySelector('img');
+            if (img) img.src = `/songs/${folder}/cover.jpg`;
+            const h2 = card.querySelector('h2');
+            if (h2) h2.textContent = info.title || h2.textContent;
+            const p = card.querySelector('p');
+            if (p) p.textContent = info.description || p.textContent;
+        }
+
+        // ensure data-folder set for later use and attach click
+        card.dataset.folder = folder;
+        card.addEventListener('click', async () => {
+            song = await getSongs(`songs/${folder}`);
+            if (songs.length > 0) playMusic(songs[0]);
+        });
+    }
 }
-
-
-//listen for timeupdte event
-currentSong.addEventListener("timeupdate", () => {
-    console.log(currentSong.currentTime, currentSong.duration);
-    document.querySelector(".songtime").innerHTML = `${secondsToMinutesSeconds(currentSong.currentTime)} / ${secondsToMinutesSeconds(currentSong.duration)}`
-    document.querySelector(".circle").style.left = (currentSong.currentTime / currentSong.duration) * 100 + "%";
-})
-
-//add event listner to seekbar
-document.querySelector(".seekbar").addEventListener("click", e => {
-    let percent = (e.offsetX / e.target.getBoundingClientRect().width) * 100;
-    document.querySelector(".circle").style.left = percent + "%";
     currentSong.currentTime = ((currentSong.duration) * percent) / 100
 })
 
