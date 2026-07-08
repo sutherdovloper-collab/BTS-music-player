@@ -163,52 +163,35 @@ const playMusic = (track, pause = false) => {
 };
 
 async function displayAlbums() {
-    const response = await fetch(`./songs/`);
+    // Use the existing .card elements in the HTML (no directory listing fetch)
+    const cardContainer = document.querySelector(".cardContainer");
+    const cards = Array.from(cardContainer.querySelectorAll('.card[data-folder]'));
 
-    const html = await response.text();
-
-    const div = document.createElement("div");
-    div.innerHTML = html;
-    const anchors = div.getElementsByTagName("a")
-    const cardContainer = document.querySelector(".cardContainer")
-    const array = Array.from(anchors)
-    for (let index = 0; index < array.length; index++) {
-        const e = array[index];
-        // for
-        // }
-
-        if (e.href.includes("/songs") && !e.href.includes(".htaccess")) {
-            const folder = e.href.split("/").slice(-2)[0];
-            const infoResponse = await fetch(`./songs/${folder}/info.json`);
-            const info = await infoResponse.json();
-
-            console.log(info);
-            cardContainer.innerHTML = cardContainer.innerHTML += `
-    <div data-folder="${folder}" class="card">
-
-                    <div class="play">
-                        <svg width="65" height="65" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="50" cy="50" r="50" fill="#AF37FF" />
-                            <path d="M40 30 L70 50 L40 70 Z" fill="black" />
-                        </svg>
-                    </div>
-                    <img src="/songs/${folder}/cover.jpg" alt="${info.title}">
-                    <h2>${info.title}</h2>
-                    <p>${info.description}</p>
-                </div>`;
+    for (const card of cards) {
+        const folder = card.dataset.folder;
+        try {
+            const infoResponse = await fetch(`./songs/${encodeURIComponent(folder)}/info.json`);
+            if (infoResponse.ok) {
+                const info = await infoResponse.json();
+                const img = card.querySelector('img');
+                if (img) img.src = `/songs/${folder}/cover.jpg`;
+                const h2 = card.querySelector('h2');
+                if (h2) h2.textContent = info.title || h2.textContent;
+                const p = card.querySelector('p');
+                if (p) p.textContent = info.description || p.textContent;
+            }
+        } catch (err) {
+            console.warn('Could not load info for', folder, err);
         }
+
+        // attach click handler
+        card.addEventListener('click', async () => {
+            song = await getSongs(`songs/${folder}`);
+            if (songs.length > 0) playMusic(songs[0]);
+        });
     }
-    //load the playlist whenever card is clicked
-    Array.from(document.getElementsByClassName("card")).forEach(e => {
-        e.addEventListener("click", async (item) => {
-            console.log(item.target, item.target.dataset)
-
-            song = await getSongs(`songs/${item.currentTarget.dataset.folder}`)
-            playMusic(songs[0])
-        })
-    })
-
 }
+
 // }
 // }
 
