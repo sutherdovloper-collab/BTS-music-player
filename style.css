@@ -486,6 +486,15 @@ input[type="range"] {
     border-radius: 50%;
 }
 
+
+p {
+    color: white;
+}
+
+span {
+    color: #AF37FF;
+}
+
 /* .logo h3 {
     /* display: flex;
      */
