@@ -33,8 +33,14 @@ function encodePathSegments(path) {
 }
 
 async function getSongs(folder) {
-    currfolder = folder;
-    const safeFolder = encodePathSegments(folder);
+    // Normalize folder input so both "ncs" and "songs/ncs" work.
+    let normalizedFolder = String(folder || '').trim();
+    if (normalizedFolder.startsWith('./songs/')) normalizedFolder = normalizedFolder.slice('./songs/'.length);
+    if (normalizedFolder.startsWith('songs/')) normalizedFolder = normalizedFolder.slice('songs/'.length);
+    if (normalizedFolder.startsWith('./')) normalizedFolder = normalizedFolder.slice('./'.length);
+    normalizedFolder = normalizedFolder.replace(/\s+/g, ' ').trim();
+    const safeFolder = encodePathSegments(normalizedFolder);
+    currfolder = normalizedFolder;
 
     // ===== ORIGINAL CODE (commented) =====
     // const response = await fetch(`./${folder}/`);
@@ -59,7 +65,7 @@ async function getSongs(folder) {
 
     // New implementation: try manifest first, then fallback to directory parse
     try {
-        const manifestResp = await fetch(`./${safeFolder}/files.json`);
+        const manifestResp = await fetch(`./songs/${safeFolder}/files.json`);
         if (manifestResp.ok) {
             const manifest = await manifestResp.json();
             // manifest expected to be an array of filenames (strings)
@@ -73,7 +79,7 @@ async function getSongs(folder) {
     }
 
     // Fallback: try parsing directory listing HTML (works on some dev servers)
-    const response = await fetch(`./${safeFolder}/`);
+    const response = await fetch(`./songs/${safeFolder}/`);
     const html = await response.text();
 
     const div = document.createElement("div");
@@ -144,7 +150,7 @@ const playMusic = (track, pause = false) => {
     // Safely encode each path segment to handle spaces/apostrophes etc.
     const safeFolder = encodePathSegments(currfolder);
     const encoded = track.split('/').map(s => encodeURIComponent(s)).join('/');
-    currentSong.src = `./${safeFolder}/${encoded}`;
+    currentSong.src = `./songs/${safeFolder}/${encoded}`;
     // Ensure the audio element reloads the new source
     currentSong.load();
 
@@ -171,44 +177,58 @@ const playMusic = (track, pause = false) => {
 async function displayAlbums() {
     const cardContainer = document.querySelector(".cardContainer");
     if (!cardContainer) return;
-    const cards = Array.from(cardContainer.querySelectorAll('.card[data-folder]'));
 
-    for (const card of cards) {
-        const folder = card.dataset.folder;
-        if (!folder) {
-            card.remove();
-            continue;
-        }
+    let folders = [];
+    try {
+        const resp = await fetch('./songs/folders.json');
+        if (resp.ok) folders = await resp.json();
+    } catch (e) {
+        console.warn('Unable to load songs/folders.json', e);
+    }
+    if (!Array.isArray(folders) || folders.length === 0) return;
 
-        const safeFolder = encodePathSegments(folder);
+    const fragment = document.createDocumentFragment();
+
+    for (const folder of folders) {
+        if (typeof folder !== 'string' || !folder.trim()) continue;
+        const normalizedFolder = folder.replace(/\s+/g, ' ').trim();
+        const safeFolder = encodePathSegments(normalizedFolder);
+
         let info = null;
         try {
-            const r = await fetch(`./${safeFolder}/info.json`);
-            if (r.ok) info = await r.json();
+            // const infoResp = await fetch(`./songs/${safeFolder}/info.json`);
+            // if (infoResp.ok) info = await infoResp.json();
+
         } catch (e) {
             info = null;
         }
 
-        if (!info) {
-            card.remove();
-            continue;
-        }
-
-        const img = card.querySelector('img');
-        if (img) img.src = `/songs/${safeFolder}/cover.jpg`;
-        const h2 = card.querySelector('h2');
-        if (h2) h2.textContent = info.title || h2.textContent;
-        const p = card.querySelector('p');
-        if (p) p.textContent = info.description || p.textContent;
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.folder = normalizedFolder;
+        card.innerHTML = `
+            <div class="play">
+                <svg width="65" height="65" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="50" fill="#AF37FF" />
+                    <path d="M40 30 L70 50 L40 70 Z" fill="black" />
+                </svg>
+            </div>
+            <img src="./songs/${safeFolder}/cover.jpg" alt="${normalizedFolder}">
+            <h2>${info && info.title ? info.title : normalizedFolder}</h2>
+            <p>${info && info.description ? info.description : 'BTS'}</p>`;
 
         card.addEventListener('click', async () => {
-            song = await getSongs(`songs/${folder}`);
+            song = await getSongs(normalizedFolder);
             if (songs.length > 0) playMusic(songs[0]);
         });
+
+        fragment.appendChild(card);
     }
 
-    Array.from(cardContainer.querySelectorAll('.card:not([data-folder])')).forEach(card => card.remove());
+    cardContainer.innerHTML = '';
+    cardContainer.appendChild(fragment);
 }
+
 // UI event listeners below
 const hamburgur = document.querySelector(".hamburgur");
 if (hamburgur) hamburgur.addEventListener("click", () => document.querySelector(".left").style.left = "0");
@@ -246,7 +266,7 @@ if (volImg) volImg.addEventListener("click", (e) => {
 });
 
 async function main() {
-    await getSongs("songs/ncs");
+    await getSongs("ncs");
     if (songs.length > 0) playMusic(songs[0], true);
     await displayAlbums();
 }
